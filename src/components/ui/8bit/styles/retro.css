@@ -1,0 +1,11 @@
+/* Press Start 2P is self-hosted via next/font in app/layout.tsx; the family is
+   bound to .retro in globals.css so there's no render-blocking CDN import. */
+.retro {
+  line-height: 1.5;
+  letter-spacing: 0.5px;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
