@@ -6,14 +6,24 @@ import { Check, Copy, Shuffle, Users, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/8bit/button";
 import { Kbd } from "@/components/ui/8bit/kbd";
 import { Progress } from "@/components/ui/8bit/progress";
-import { CharacterSelect } from "@/components/character-select";
+import { CharacterSelect, type Reel } from "@/components/character-select";
 import { IntroScreen } from "@/components/intro-screen";
 import { Stage } from "@/components/stage";
 import { QUOTES, QUOTES_BY, type Quote } from "@/lib/quotes";
 import { BY_ID, ROSTER, type CharacterId } from "@/lib/roster";
-import { blip, sting, thunk, tick } from "@/lib/arcade-audio";
+import {
+  blip,
+  duckTheme,
+  startTheme,
+  sting,
+  stopTheme,
+  thunk,
+  tick,
+} from "@/lib/arcade-audio";
 
 const TYPE_MS = 26;
+/** How long the winner sits lit up on the grid before its quote takes over. */
+const LOCK_MS = 1500;
 
 function shuffle<T>(xs: T[]) {
   for (let i = xs.length - 1; i > 0; i--) {
@@ -29,10 +39,11 @@ export function QuoteMachine() {
   const [quote, setQuote] = useState<Quote | null>(null);
   const [typed, setTyped] = useState(0);
   const [seen, setSeen] = useState<Set<string>>(() => new Set());
-  const [sound, setSound] = useState(false);
+  const [sound, setSound] = useState(true);
   const [copied, setCopied] = useState(false);
-  const [reeling, setReeling] = useState<CharacterId | null>(null);
+  const [reel, setReel] = useState<Reel | null>(null);
   const bags = useRef<Partial<Record<CharacterId, Quote[]>>>({});
+  const reelTimer = useRef<number | null>(null);
 
   const character = picked ? BY_ID[picked] : null;
   const done = !quote || typed >= quote.text.length;
@@ -75,26 +86,62 @@ export function QuoteMachine() {
 
   /** Arcade reel: cycles the roster and decelerates onto the winner. */
   const randomise = useCallback(() => {
-    if (reeling) return;
-    const target = ROSTER[Math.floor(Math.random() * ROSTER.length)].id;
-    let i = Math.floor(Math.random() * ROSTER.length);
-    let delay = 60;
+    if (reel) return;
+    // The reel is only legible on the grid, so come back to it before spinning.
+    setPicked(null);
+    setQuote(null);
+
+    const len = ROSTER.length;
+    const targetIdx = Math.floor(Math.random() * len);
+    const steps = 17 + Math.floor(Math.random() * 5);
+    // Walk the grid in order and start far enough back that the final step
+    // lands on the winner — otherwise the highlight stops on one character
+    // and the quote belongs to another.
+    let i = (((targetIdx - steps) % len) + len) % len;
     let step = 0;
+
     const spin = () => {
-      i = (i + 1) % ROSTER.length;
-      setReeling(ROSTER[i].id);
-      if (sound) tick(step % 6);
+      i = (i + 1) % len;
       step++;
-      delay *= 1.18;
-      if (delay < 260) {
-        setTimeout(spin, delay);
-      } else {
-        setReeling(null);
-        play(target);
+      const landed = step >= steps;
+      setReel({ id: ROSTER[i].id, locked: landed });
+
+      if (landed) {
+        if (sound) sting(ROSTER[targetIdx].voice);
+        reelTimer.current = window.setTimeout(() => {
+          setReel(null);
+          play(ROSTER[targetIdx].id);
+        }, LOCK_MS);
+        return;
       }
+
+      if (sound) tick(step % 6);
+      // Cubic ease-out: a blur at the start that stretches to a crawl, so the
+      // last few names are readable as they go by.
+      const t = step / steps;
+      reelTimer.current = window.setTimeout(spin, 45 + 300 * t * t * t);
     };
     spin();
-  }, [reeling, sound, play]);
+  }, [reel, sound, play]);
+
+  useEffect(() => {
+    return () => {
+      if (reelTimer.current !== null) clearTimeout(reelTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (sound) startTheme();
+    else stopTheme();
+  }, [sound]);
+
+  // The theme keeps playing under a quote, just far enough back that the
+  // typing blips and the character stings still cut through it.
+  useEffect(() => {
+    duckTheme(quote !== null);
+  }, [quote]);
+
+  useEffect(() => stopTheme, []);
 
   const advance = useCallback(() => {
     if (!quote || !picked) return;
@@ -140,7 +187,13 @@ export function QuoteMachine() {
   const pct = seen.size === 0 ? 0 : Math.max(5, raw);
 
   if (!started) {
-    return <IntroScreen onStart={() => setStarted(true)} />;
+    return (
+      <IntroScreen
+        onStart={() => setStarted(true)}
+        sound={sound}
+        onToggleSound={() => setSound((s) => !s)}
+      />
+    );
   }
 
   return (
@@ -156,7 +209,7 @@ export function QuoteMachine() {
 
       {!character || !quote ? (
         <CharacterSelect
-          reeling={reeling}
+          reel={reel}
           onPick={(id) => play(id)}
           onRandom={randomise}
         />

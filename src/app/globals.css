@@ -258,8 +258,26 @@
   animation: caret-blink 0.7s steps(1, end) infinite;
 }
 
+
+@keyframes reel-lock {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(242, 197, 15, 0);
+  }
+  50% {
+    box-shadow: 0 0 18px 4px rgba(242, 197, 15, 0.6);
+  }
+}
+
+/* The winner of the SURPRISE ME reel, held lit before its quote loads. */
+.reel-lock {
+  animation: reel-lock 0.42s steps(2, end) 3;
+  border-color: #f4ecd8 !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ted-bob,
+  .reel-lock,
   .caret,
   .believe-sign,
   .press-start {

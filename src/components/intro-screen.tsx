@@ -27,7 +27,15 @@ const PAINT_MS = 2300;
 /** Stable per-seat variation so the stand isn't a flat colour field. */
 const variant = (c: number, r: number) => ((c * 7 + r * 13) >>> 0) % 2;
 
-export function IntroScreen({ onStart }: { onStart: () => void }) {
+export function IntroScreen({
+  onStart,
+  sound,
+  onToggleSound,
+}: {
+  onStart: () => void;
+  sound: boolean;
+  onToggleSound: () => void;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [painted, setPainted] = useState(false);
   const skipRef = useRef(false);
@@ -166,7 +174,21 @@ export function IntroScreen({ onStart }: { onStart: () => void }) {
           )}
         </div>
 
-        <p className="retro mt-4 text-[8px] leading-loose text-[#3c4569]">
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={onToggleSound}
+            // Keep Space off the window handler, which would start the game
+            // instead of toggling while this button holds focus.
+            onKeyDown={(e) => e.stopPropagation()}
+            aria-pressed={sound}
+            className="retro cursor-pointer px-3 py-1 text-[8px] tracking-[0.2em] text-[#4c5680] hover:text-[#f2c50f]"
+          >
+            {sound ? "♪ MUSIC ON" : "♪ MUSIC OFF"}
+          </button>
+        </div>
+
+        <p className="retro mt-3 text-[8px] leading-loose text-[#3c4569]">
           © 1987 AFC RICHMOND · DRAFTED BY ANIKESH &amp; CRAFTED BY CLAUDE ·
           8bitcn
         </p>
